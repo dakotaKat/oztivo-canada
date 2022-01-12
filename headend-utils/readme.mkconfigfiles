@@ -1,0 +1,149 @@
+# $Id: readme.mkconfigfiles,v 1.9 2004/05/19 16:19:39 n4zmz Exp $
+
+The purpose of this program is to make it easier to create headends and their
+corresponding stations.txt files.
+
+New support for overriding parameters based on file names.
+
+New support for tv_grab_na_dd style config files.
+
+New command line options.
+
+It now supports multiple configuration files on the command line.  It no longer
+supports passing the type of stations.txt file on the command line.  It is now
+set by the stations section and the format variable. i.e.
+
+[stations]
+format=xmltv
+
+The default is format=both.
+
+It does expect XMLTV configuration files as input to generate the headends.
+
+These configuration files are in the format of:
+---- tv_grab_na.conf
+zip code: 12345
+postal code: 2x5t34
+provider: 23456 # Providername - City - Lineup
+channel: 2 WABC
+----
+
+All of the letters in a postal code are converted to zeroes.  It is also
+trimmed to 5 characters.
+
+In a multiple configuration option, the stations.txt file is named as follows:
+	stations.txt-<state><provider>-xmltv
+	stations.txt-<state><provider>-parsexml
+
+In a single configuration option with format=both, the files are named as
+follows:
+	stations.txt-xmltv
+	stations.txt-parsexml
+
+For configuration file options, run without any parameters.
+
+If you have two callsigns on the same channel, you will either need to comment
+them out of the xmltv configuration file or specify at least one of them in the
+config.ini.  Otherwise they will end up being the same serverid which is bad.
+
+Warning messages:
+	You might want to set zipcode in the config.ini file.
+		Could not find a zipcode/postalcode in the xmltv config file
+		Adding a zipcode to the default section will correct this.
+	Skipping channel (CALLSIGN) already created
+		With multiple configuration files the station only needs to be
+		created once.
+
+	WARNING: No entry for callsign (CALLSIGN)
+		All the information is generated for this callsign.
+
+ServiceTiers from /tvlib/tcl/tv/DbEnum.tcl
+
+    Basic 1
+    ExtendedBasic 2
+    Music 5
+    PayPerView 4
+    Premium 3
+
+Lineuptypes from /tvlib/tcl/tv/DbEnum.tcl
+
+    Broadcast 16
+    CableReadyABasic 73
+    CableReadyAExtendedBasic 74
+    CableReadyAPayPerView 76
+    CableReadyAPremium 75
+    CableReadyBBasic 77
+    CableReadyBExtendedBasic 78
+    CableReadyBPayPerView 80
+    CableReadyBPremium 79
+    CableReadyBasic 25
+    CableReadyExtendedBasic 26
+    CableReadyPayPerView 28
+    CableReadyPremium 27
+    CableReadySetsBasic 37
+    CableReadySetsExtendedBasic 38
+    CableReadySetsPayPerView 40
+    CableReadySetsPremium 39
+    DBSBasic 17
+    DBSPackage 18
+    DBSPayPerView 20
+    DBSSingle 19
+    DDeviceCableReadyBasic 33
+    DDeviceCableReadyExtendedBasic 34
+    DDeviceCableReadyPayPerView 36
+    DDeviceCableReadyPremium 35
+    DigitalBasic 11
+    DigitalExtendedBasic 12
+    DigitalPayPerView 14
+    DigitalPremium 13
+    DigitalRebuild 15
+    DigitalRebuildBasic 29
+    DigitalRebuildExtendedBasic 30
+    DigitalRebuildPayPerView 32
+    DigitalRebuildPremium 31
+    HamlinConverterBasic 41
+    HamlinConverterExtendedBasic 42
+    HamlinConverterPayPerView 44
+    HamlinConverterPremium 43
+    JerroldConverterBasic 49
+    JerroldConverterExtendedBasic 50
+    JerroldConverterPayPerView 52
+    JerroldConverterPremium 51
+    JerroldImpulseConverterBasic 45
+    JerroldImpulseConverterExtendedBasic 46
+    JerroldImpulseConverterPayPerView 48
+    JerroldImpulseConverterPremium 47
+    OakConverterBasic 57
+    OakConverterExtendedBasic 58
+    OakConverterPayPerView 60
+    OakConverterPremium 59
+    PioneerConverterBasic 53
+    PioneerConverterExtendedBasic 54
+    PioneerConverterPayPerView 56
+    PioneerConverterPremium 55
+    PrimaryBasic 1
+    PrimaryExtendedBasic 2
+    PrimaryPayPerView 4
+    PrimaryPremium 3
+    PrimaryRebuild 5
+    RebuildBasic 21
+    RebuildExtendedBasic 22
+    RebuildPayPerView 24
+    RebuildPremium 23
+    ScientificAtlantaConverterBasic 65
+    ScientificAtlantaConverterExtendedBasic 66
+    ScientificAtlantaConverterPayPerView 68
+    ScientificAtlantaConverterPremium 67
+    SecondaryBasic 6
+    SecondaryExtendedBasic 7
+    SecondaryPayPerView 9
+    SecondaryPremium 8
+    SecondaryRebuild 10
+    TocomConverterBasic 61
+    TocomConverterExtendedBasic 62
+    TocomConverterPayPerView 64
+    TocomConverterPremium 63
+    ZenithConverterBasic 69
+    ZenithConverterExtendedBasic 70
+    ZenithConverterPayPerView 72
+    ZenithConverterPremium 71

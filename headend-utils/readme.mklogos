@@ -1,0 +1,29 @@
+# $Id: readme.mklogos,v 1.2 2003/07/05 20:11:17 n4zmz Exp $
+
+The purpose of this program is to make it easier to create logo slices
+
+It outputs a logos.txt file in the directory with the png/gif images.
+It copies each png to a file without the png extension.
+
+To create a logo slice:
+
+in a directory called png there are the following files:
+movie-central-s1-p1.png            w-s2-p2.png
+movie-central-s2-p2.png            wtsn-s1-p1.png
+movieola-s1-p1.png                 wtsn-s2-p2.png
+movieola-s2-p2.png                 xtreme-s1-p1.png
+mpix2-s1-p1.png                    xtreme-s2-p2.png
+
+Run the program passing the png as the directory.
+
+It will create the logos.txt file.
+
+create the enviroment variable TIVO_SCHEMA and point it to the full pathname
+for the schema.txt file.
+
+change directory to the png directory.
+
+Run the writeguide program using logos.txt file as input.
+
+You now have a logo slice file.
+

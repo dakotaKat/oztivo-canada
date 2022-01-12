@@ -1,0 +1,134 @@
+# $Id: HISTORY,v 1.3 2004/06/21 20:50:51 n4zmz Exp $
+
+Nick Giannis and Dan Boardman of the tivo_canada yahoo group created separate
+versions of the TiVo Service Emulator on or around April 26th of 2003.  These
+were the first publicly available versions (that I'm aware of).  They were
+limited in their functionality.
+
+From these humble beginnings, the n4zmz-emu came into existance.  It took the
+best of both worlds and extended their functionality to its current state.
+It is called the n4zmz-emu because of the directory name used in the
+tivocanada.com CVS tree.  The original versions were named
+tivo-service-emulator, which were supported by Nick and Dan.  So as to not
+conflict with the existing names, the choice of using n4zmz which is an
+amateur callsign made the naming unique.
+
+As to where Nick and Dan got their information to create their versions, it
+could have been from looking at the files on their tivos (/tvlib/tcl/tv/*.itcl)
+or doing a packet capture of the conversations between their tivos and the real
+tivo mothership.
+
+Both of these methods are currently used to diagnose and extend the service
+emulator.
+
+The TiVo mothership needs to perform a number of tasks.
+	1 - Capture service logs (mlog.cgi)
+	2 - Download phone information (TCD411.cgi)
+	3 - Download software information (HServer.cgi)
+	4 - Download lineup information (HServer.cgi)
+	5 - Download guide information (HServer.cgi)
+	6 - Download showcase information (HServer.cgi)
+	7 - Download keys (keyserver.cgi)
+	8 - Capture usage information (acceptfile.cgi)
+
+These tasks are performed by capturing information from the tivo and sending
+back commands to the tivo to perform.  This would include downloading a file,
+setting internal database configurations, or executing a script.  The files
+sent to the tivo are protected by signatures if it is an executable or
+SHA1 checksums if it is a data file.  The TiVo mothership protects its
+files by requiring extra information that a proxy server would not normally
+pass in the HTTP headers.
+
+The service emulator is controlled by a master configuration file (tivo.conf).
+This file contains the locations of all of the directories it needs and any
+specific parameters for an individual tivo.  The configuration is merged with
+the information from the tivo to provide a flexible system of control.  The
+software version on the tivo is used to determine the correct format of the
+commands to send.
+
+The task of capturing the service logs is used by the service emulator to
+know the last time a particular tivo talked to it for guide information
+selection.  It updates the statuslog with the information.
+
+The task of downloading the phone information by the service emulator is
+based upon information received from the tivo and the configuration in the
+master configuration file.  The tivo provides the current database information
+about what it uses to talk to the mothership.  The service emulator takes this
+information and verifies it against the files in the headend directory, along
+with the specific information in the master configuration file to determine
+what, if anything needs to be sent to the tivo.  This might be to send it new
+phone numbers to call, or a new toll free number to call, or disable toll free
+calling.
+
+The task of downloading software information, like the phone information is
+based upon information receieved from the tivo and the configuration in the
+master configuration file.  The tivo provides the current database information
+about it's software versions and the reason for the call.  The service emulator
+takes this information and verifies it against the files in the headend
+directory and the master configuration file to decide what it must tell the
+tivo to do.
+
+The task of downloading lineup information, like all of the previous tasks
+is controlled by the information provided by the tivo, along with the master
+configuration file.  The tivo provides a number of location ids that it wants
+information on.  The service emulator must take this information along with
+the type of unit (UK/US), the signal type (Antenna/etc), and the last
+successful download time to determine which files the tivo might need.
+In a perfect world, the latter pieces of information would not be needed.
+They are needed to get around bugs in the client configuration/software on
+the tivo and to normalize the UK values to the US model.
+
+The UK tivo client was designed to only have 1 zipcode/timezone, whereas the
+US has many zipcodes and timezones.  This limitation on the UK tivo software
+is only noticed if a satellite connection is selected.
+
+The client software correctly updates the database version number for cable
+and antenna, but does can have issues with satellite if not properly configured.
+The symptom of this bug is that the satellite headend is downloaded for each
+call.
+
+The task of downloading guide information is done by the tivo providing a
+list of headends that it wants information from.  The service emulator takes
+this list and searches the slice directory for matching names.  The file naming
+is very important for the files in this directory.  The service emulator
+uses the file names to determine what days the file covers.  So, it will not
+send a file to the tivo if the date has passed even if the modification date
+of the file is after the last time the tivo called.
+
+The task of downloading showcase information is not implimented yet in the
+service emulator.  The issue of where to get the information to create the
+necessary files is the main reason for no support.
+
+The task of downloading keys at the moment is a static function.  The
+service emulator checks the keyring of the tivo and sends the staticly
+defined ElGamal keys to properly populate the keyring.  This is the area
+that would need to be enhanced in order to get HMO fully functioning on the
+series 2.
+
+The last task of usage capture is limited at best with the service emulator.
+It will accept the upload request and store the encrypted file.  To make this
+useful, a set of key generation and decryption functions would need to be
+written.  The new key would be sent by the keyserver.  The capture
+functionality can be disabled in the master configuration file.
+
+The service emulator supports the following functions.
+	1 - Guided Setup
+	2 - Test Call
+	3 - Daily Call
+
+The Guided setup consists of three parts.  The first part is the 411 call to
+determine the correct phone numbers to use.  The second part is the downloading
+of the current affiliation, IR, logos and headends.  The third part is the
+downloading of the guide data for the selected lineup.
+
+The test call is just a special case of the 411 call.  It is used to verify
+that there is good network connectivity between the tivo and the server.
+
+The daily call checks the lineup for updates along with any new guide
+information.  Along with the guide information, the emulator sets a number of
+internal parameters on the tivo (upload, keyserver, time server, service state).There is a special case of daily call which is used to upgrade the software
+on a tivo.  The service emulator checks the software version against the
+master configuration file to decide if the version is current.  If it is not
+current, it will convert the daily call into an upgrade call.  The upgrade
+call is converted back to a daily call if the support files to do the upgrade
+are not available.

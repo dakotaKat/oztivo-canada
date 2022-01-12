@@ -1,0 +1,54 @@
+# $Id: readme.mkguideslices,v 1.5 2004/05/30 19:42:22 ether Exp $
+
+Supported command-line options (these override tivo.conf):
+        --days          Number of days to grab
+        --offset        Number of offset days ot skip before grabbing days
+        --quiet         Does not produce output at each stage
+        --stages        Which stages to run (useful if rerunning slice
+                        generation on already-grabbed XML data -- days and
+                        offset must match the data), or "all" for full
+                        operation
+
+Supported configuration options (in tivo.conf):
+
+Section [slices]
+	days		Number of days to grab
+	offset		Number of offset days to skip before grabbing days
+	directory	The default output directory
+	country		The grabber country suffix for tv_grab_XX
+	useextractinfo  If the tv_extractinfo_en step is desired (0=off, 1=on)
+	usesort         If the tv_sort step is desired (0=off, 1=on)
+	usegrep         If the tv_grep step is desired (0=off, 1=on)
+	useimdb		If IMDB support is desired (0=off, 1=on)
+	imdbdir		The directory location for imdb databases including the
+			trailing slash
+	guidetype	Which converter to use.  Supported are xmltv or parsexml
+	guidedir	Where the guide generation should run from
+	usegzip		If compressed files are desired (0=off, 1=on)
+	headend		Which headend name to use
+	group		If the slices need to belong to a different group name
+        path            The directory in which to look for the xmltv
+                        utilities, if the script cannot find it already
+        fillholes       Feature to back-fill holes in the guide data back
+                        to the present (if offset is being used), and fills
+                        in 5-8 hour parsexmlguide data holes: 0=off, 1=on,
+                        defaults to 0
+
+Section [config]
+	slicedir	Physical directory location of generated slices
+        verbose         Comma separated list of steps for which to print
+                        output, or "none" for quiet mode
+
+Section [debug]
+	guide		Comma separated list of steps to keep temporary files.
+
+Stages:
+        1               tv_grab
+        2               tv_extractinfo_en
+        3               tv_sort
+        4               tv_grep
+        5               tv_imdb
+        6               xmltv2tivo or parsexmlguide
+        7               writeguide or mkslice
+
+

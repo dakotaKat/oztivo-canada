@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+#
+# This utility will read an existing headend and update config-channels
+# to the values in the headend.
+#
+# Copyright 2004 Dennis J. Boylan, dennis@b-lan.com
+# released under the GNU GPL v2
+#
+# $Id: update_cfg,v 1.2 2004/07/05 18:46:56 n4zmz Exp $
+#
+
+use strict;
+use Config::IniFiles 2.37;
+
+my($cfg) = new Config::IniFiles(-file=>"config-channels.ini",-nocase=>1);
+
+my($upd) = 0;
+my($line,$srec,$serverid,$version,%rec,$callsign,$param,$val);
+while ($line = <>) {
+	if ($line =~ /^Station\/(\d+)\/(\d+)\/(\d+)\s+\{/) {
+		%rec = ();
+		$srec = $1;
+		$serverid = $2;
+		$version = $3;
+	} elsif ($line =~ /(\S+)\:\s+\{(.*)\}/) {
+		$param = $1;
+		$param =~ tr /A-Z/a-z/;
+		$val = $2;
+		$val =~ s/\,$//;
+		next if ($param eq "dmaname");
+		$rec{$param} = $val;
+	} elsif ($line =~ /(\S+)\:\s+(\d+)/) {
+		$param = $1;
+		$param =~ tr /A-Z/a-z/;
+		$val = $2;
+		next if ($param eq "dmanum" && $val == 0);
+		next if ($param eq "affiliationindex");
+		next if ($param eq "logoindex");
+		$rec{$param} = $val;
+	} elsif ($line =~ /^\}/) {
+		$callsign = $rec{"callsign"};
+		next if ($callsign eq "");
+		$rec{"serverid"} = $serverid;
+		$rec{"version"} = $version;
+		$val = $cfg->val($callsign,"version");
+		next if (defined($val) && $val > $version);
+		for $param (keys %rec) {
+			next if ($param eq "callsign");
+			$val = $cfg->val($callsign,$param);
+			next if ($param eq "name" && $rec{$param} eq $callsign);
+			if ($val ne $rec{$param}) {
+				print STDERR "CALLSIGN($callsign) PARAM($param) OLD($val) NEW($rec{$param})\n";
+				if (defined($val)) {
+				$cfg->setval($callsign,$param,$rec{$param});
+				} else {
+				$cfg->newval($callsign,$param,$rec{$param});
+				}
+
+				$upd++;
+			}
+		}
+		%rec = ();
+	}
+}
+$cfg->RewriteConfig() if ($upd);

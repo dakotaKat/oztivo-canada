@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+# $Id: mkheadend,v 1.4 2003/08/11 17:04:07 n4zmz Exp $
+
+use Config::IniFiles 2.37;
+$cfg = new Config::IniFiles(-file=>"config.ini",-nocase=>1);
+$ver = $cfg->val("base","version");
+$zip = $cfg->val("default","zipcode");
+system("./mkconfigfiles.pl ~/.xmltv/tv_grab_na.conf");
+system("./writeguide <headend.txt >$zip-$ver.slice");
+system("gzip --best $zip-$ver.slice");
+system("rm -f /var/www/html/static/Headend/$zip-*");
+system("cp $zip-$ver.slice.gz /var/www/html/static/Headend/");

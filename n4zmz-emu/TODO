@@ -1,0 +1,10 @@
+# $Id: TODO,v 1.6 2005/01/15 20:16:32 n4zmz Exp $
+
+Finish software upgrade support
+	Standalone Series 1
+		Need UK 2.55 slices
+Generate El-Gamal keys in keyserver
+Add utility to decrypt upload files
+Generate signatures for runme files
+Add more Mercury support
+Add 7.x support.

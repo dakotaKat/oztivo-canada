@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 1.0.1  (Linux)">
+	<META NAME="CREATED" CONTENT="20030426;8303700">
+	<META NAME="CHANGED" CONTENT="20030426;20493400">
+	<STYLE>
+	<!--
+		@page { size: 21.59cm 27.94cm; margin-left: 3.18cm; margin-right: 3.18cm; margin-top: 2.54cm; margin-bottom: 2.54cm }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US">
+<P STYLE="margin-bottom: 0cm; border: none; padding: 0cm"><FONT SIZE=2>This
+is a quick and dirty README intended to get someone who knows what
+they're doing up and running. I'll eventually write a more detailed
+one, after having received feedback from the experiences of a few
+users.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Files included in this
+package:</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">README.html</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">rc.local</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">ntp.conf</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">step-tickers</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">httpd.conf</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">HServer.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">mlog.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">keyserver.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">TCD411.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">TClient-lib.itcl</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">Setup.itcl</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>The following instructions
+are based on a RedHat 8.0 installation on the PC and TiVo software
+version 3.0. Additional instructions for users running TiVo software
+version 2.5.1 can be found below.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>I developed this process
+on my Philips HDR112 uppgraded with a 60 Gb hard disk running s/w
+version 2.5.1. I had to disable my “bash on the DSS” and “ppp
+over serial” hacks. I then downloaded an unmodified 3.0 s/w image
+from the net and tested the process again. The built-in support for
+ppp on the serial port was a welcome feature and made it possible to
+have a completely “hack-free” tivo service emulator.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>I am not an Apache or NTP
+expert (or Perl for that matter). My apologies for any newbie errors
+associated with the setups for these programs. I have to say though
+that the  documentation for NTP reminds me of my university
+textbooks: they assume you already understand everything.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>TiVo Setup</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>You don't need to do
+anything on the TiVo other than set a special dial prefix under
+Messages &amp; Setup &gt; Recorder &amp; Phone Setup &gt; Phone
+Connection &gt; Change Dialing Options. Set the Dial Prefix to <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">,#211</FONT></FONT>
+using the pause key for the comma. The phone number doesn't matter
+since the TiVo will connect through the serial port.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>PC Setup</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Apache, NTP and Perl are
+required. </FONT>
+</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>pppd setup</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Add the following line to
+the <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">/etc/rc.d/rc.local</FONT></FONT>
+file:</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">/usr/sbin/pppd
+ttyS0 115200 debug local nocrtscts proxyarp passive persist deflate 0
+204.176.49.2:192.168.10.3</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Directory setup</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Create a user “tivo”
+with home directory <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">/home/tivo</FONT></FONT>.
+The directory structure for the web server will look like this:</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">/home/tivo</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+   /home/tivo/webserver</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+       /home/tivo/webserver/tivo-service</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+       /home/tivo/webserver/static</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+           /home/tivo/webserver/static/listings</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+           /home/tivo/webserver/static/Headend</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">
+       /home/tivo/webserver/setup</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>The
+directories under <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">webserver</FONT></FONT>
+have the following privileges:</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">drwxrwxr-x
+   3 tivo     tivo         4096 Apr  6 21:15 setup</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">drwxrwxr-x
+   4 tivo     tivo         4096 Mar  1 13:59 static</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">drwxrwxr-x
+   2 tivo     tivo         4096 Apr 26 09:16 tivo-service</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>The
+directories under <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">static</FONT></FONT>
+have these privileges:</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">drwxrwxr-x
+   2 tivo     tivo         4096 Mar  1 19:21 Headend</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">drwxrwxr-x
+   2 tivo     tivo         4096 Apr 24 21:48 listings</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Copy the following files
+to the <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">tivo-service
+</FONT></FONT><FONT FACE="Nimbus Roman No9 L">directory and ensure
+the file privileges are set correctly:</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rwxrwxr-x
+   1 tivo     tivo         2014 Apr 26 08:41 HServer.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rwxrwxr-x
+   1 tivo     tivo           93 Apr 26 08:40 keyserver.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rwxrwxr-x
+   1 tivo     tivo           95 Apr 26 08:40 mlog.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rwxrwxr-x
+   1 tivo     tivo          207 Apr 26 08:39 TCD411.cgi</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>Here's
+an example of what's under my <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">listing</FONT></FONT>
+directory:</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rw-rw-r--
+   1 tivo     tivo       989411 Apr 19 10:51
+121437_12161-v49.slice.gz</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rw-rw-r--
+   1 tivo     tivo       992013 Apr 21 11:03
+121437_12163-v49.slice.gz</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">-rw-rw-r--
+   1 tivo     tivo       932924 Apr 24 21:46
+121437_12167-v49.slice.gz</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Setting up NTP</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=2>Two files need to be
+updated: <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">/etc/ntp.conf</FONT></FONT>
+and <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">/etc/ntp/step-tickers</FONT></FONT>.
+The <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">step-tickers</FONT></FONT>
+file contains a single line which is the name of the time server
+which is used. This needs to match the time server in the <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">ntp.conf</FONT></FONT>
+file.</FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>Setting
+up Apache</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>The
+configuration file for Apache needs to be updated. The file is
+<FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">/etc/httpd/conf/httpd.conf</FONT></FONT>.
+I'm not using Apache for anything else on the PC so the process was
+pretty straightforward. If you need to support the tivo web server in
+addition to other webs, you're on your own.</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>Additional
+instructions for TiVo software version 2.5.1</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>If
+you're running TiVo software version 2.5.1, you can also use this
+process to load slice files. In this case however, you need to
+replace two files on the TiVo: <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">TClient-lib.itcl</FONT></FONT>
+and <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">Setup.itcl</FONT></FONT>.
+Both these files reside in the <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">tvlib/tcl/tv</FONT></FONT>
+directory. Make sure both files have the same read/write/execute
+properties as the original files.</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>Loading
+slice files</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>The
+TiVo knows what slice files to load by reading the output of the
+HServer.cgi script. The script outputs a series of key/value pairs
+which specify, among other things, the reason for the call and what
+files to download. The most important keys are <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">CODE</FONT></FONT>
+and <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">SW_LIST</FONT></FONT>.
+<FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">CODE=8</FONT></FONT>
+is a response to the TiVo telling it that we're setting up the
+channel grid, known as a headend. <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">CODE=1</FONT></FONT>
+is a response accepting a normal download of the electronic program
+guide (EPG). <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">SW_LIST</FONT></FONT>
+represents the full URL of the files to download, separated by a
+vertical bar. For example:</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2 STYLE="font-size: 9pt">SW_LIST=&amp;http://204.176.49.2:8080/static/listings/121437_12167-v49.slice.gz|</FONT></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>In
+the example above, the TiVo will download a single file,
+<FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">121437_12167-v49.slice.gz
+</FONT></FONT>which contains the EPG listings. Note that the TiVo can
+handle files with and without a <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">gz</FONT></FONT>
+extension; gzip files will automatically be decompressed. </FONT></FONT>
+</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT FACE="Nimbus Roman No9 L"><FONT SIZE=2>Right
+now, I edit the HServer.cgi file every time I upload a new set of EPG
+listings. Once I start using <FONT SIZE=2 STYLE="font-size: 9pt"><FONT FACE="Courier, monospace">cron</FONT></FONT>
+to generate the slice files automatically, then I'll modify the cgi
+script to automatically take the latest version of the slice file.</FONT></FONT></P>
+</BODY>
+</HTML>

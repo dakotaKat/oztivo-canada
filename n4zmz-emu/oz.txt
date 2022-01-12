@@ -1,0 +1,18 @@
+# Set a few useful things up to use Service Emulator instead of TiVo mothership
+# Set the DialConfig to use our mothership emulator
+/hack/bin/DialConfig127.tcl
+# This would do the same thing
+#dbsetx /State/PhoneConfig DialConfig 127
+
+# This will make TiVo try a daily call over the network.
+dbsetx /State/PhoneConfig DialPrefix ',#401'
+
+# This will make the modem behave better in Oz
+dbsetx /State/PhoneConfig DialToneCheck 0
+
+dbsetx /State/LocationConfig TimeZoneOld 7
+
+# Tivo cannot handle all Daylight Savings Policies, especially Southern Hemishphere. Change the UTC offset in /hack/bin/fixtivotime
+dbsetx /State/LocationConfig DaylightSavingsPolicy 0
+
+###############
