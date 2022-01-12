@@ -1,0 +1,851 @@
+#!/opt/sfw/bin/perl
+# getppv  1.14   mmmm_beer  2003/09/08
+#
+#            This will retrieve the DirectTV PPV listings from TVGuide.com
+#            and build the directry structure that mkslice needs to build
+#            a slice file.  This program assumes that your serverid's for
+#            PPV are the defaults when doing a DTV Guided Setup.  If not
+#            Then you will have to remap the servids hash below.  There are
+#            a few ppv channels that are not processed, my TiVo does not have
+#            them mapped, and I have been too lazy to try, you can add them to
+#            the chans hash as well as the servid hash.  
+# 
+#            This was thrown together pretty quickly and some of this is very
+#            sloppy, but Since Jpaq and The Doctor seems to have stopped 
+#            updating the PPV slices, I needed something quick.  If you 
+#            make any mods, please share them with the tivo_canada group.
+#
+#            If you have any questions I am rmminusr in the tivo_canada group.
+#
+#
+#  Requirements:
+#                 HTML::TokeParser
+#                 HTML::TokeParser::Simple
+#                 Date::Calc
+#                 LWP::UserAgent
+#                 GDBM
+#
+#  Changes 1.0 - 1.1  
+#         - Added more genres
+#         - Removed extra spaces from actors
+#         - Differentiated between mpaarating and rating
+#         - Added ppv = 1 flag to file
+#         - Strip out funky quotes from description
+#         - Added movie = 1 flag to file if it is a movie
+#         - Thanks to Phil Hunt for all the feedback for these changes
+#
+#  Changes 1.1 - 1.2
+#         - Fixed Actor information if it spanned more than one line
+#
+#  Changes 1.2 - 1.3  
+#        - Fixed funky quotes, hopefully for good.
+#        - Fixed time/date conversions, should have correct date and time now
+#
+#  Changes 1.3 - 1.4  
+#        - Fixed some time/date conversions, hopefully all these should be fixed
+#        - Fixed bug in processing for Actors, some were not showing up complete
+#  Changes 1.4 - 1.5
+#        - You can now pass the number of days you want to grab and start date to grab - thanks Phil Hunt
+#  Changes 1.5 - 1.6
+#        - Don't create stationday directory unless you have a $title
+#  Changes 1.6 - 1.7
+#        - Fix EOF thing with missing curly brace after ARGV stuff
+#  Changes 1.7 - 1.8
+#        - Change é to e so TiVo doesn't barf
+#  Changes 1.8 - 1.9
+#        - Needed to add some cookies to keep tvguide happy
+#  Changes 1.9 - 1.10
+#        - TvGuide changed some of their pages to pass the time/date differently
+#          added code to handle both formats of time/date
+#  Changes 1.10 - 1.11
+#        - Fixed wrong date being passed to dt
+#  Changes 1.11 - 1.12
+#        - Needed to add some more cookies to keep tvguide happy
+#  Changes 1.12 - 1.13
+#        - Needed to add even more cookies to keep tvguide happy and
+#          add server busy code.
+#  Changes 1.13 - 1.14
+#        - Tvguide needs to initialize a cookie from main page, and it expires
+#          shortly thereafer, so we have to detect it and request the main page
+#          again, then retry our page.
+#        
+#  NOTE: If your progfile contains the character é then that record needs
+#        to be deleted.  You can use something similar to the small script
+#        below, or you can just remove the profile and let it regenerate.
+#
+#my $series_file = "progfile";
+#tie (%series_table, "GDBM_File", $series_file, &GDBM_WRCREAT, 0644);
+#foreach $key (sort keys %series_table) {
+#  $text = $series_table{$key};
+#  if( $text =~ /é/ ) {
+#     delete $series_table{$key};
+#  }
+#}
+#untie $series_table;
+
+
+
+use HTML::TokeParser;
+use HTML::TokeParser::Simple;
+use Data::Dumper;
+use Time::Local;
+use Date::Calc qw(Delta_Days Add_Delta_Days);
+use HTTP::Request::Common;
+use HTTP::Cookies;
+use HTTP::Request;
+use LWP::UserAgent;
+use GDBM_File;
+use vars qw(%showtable,%chans,%servid);
+
+  my $ua = LWP::UserAgent->new(agent => 'Mozilla/5.0');
+  $jar = HTTP::Cookies->new;
+  $jar->set_cookie(
+                   0,
+                   FilterGenre => '0',
+                   '/','.tvguide.com',80,0,0,
+                   time() + 60*60*24,
+                   0, {}
+                  );
+  $jar->set_cookie(
+                   0,
+                   FilterChannel => '0',
+                   '/','.tvguide.com',80,0,0,
+                   time() + 60*60*24,
+                   0, {}
+                  );
+  $jar->set_cookie(
+                   0,
+                   AdHistory => '9790',
+                   '/','.tvguide.com',80,0,0,
+                   time() + 60*60*24,
+                   0, {}
+                  );
+  $jar->set_cookie(
+                   0,
+                   GBA => '0',
+                   '/','.tvguide.com',80,0,0,
+                   time() + 60*60*24,
+                   0, {}
+                  );
+  $ua->cookie_jar($jar);
+  my $req = GET 'http://www.tvguide.com';
+  my $res = $ua->request($req);
+  $ua->cookie_jar->extract_cookies($res);
+
+  my $pidbase    = 120_000_000;   # program id
+  my $sidbase    = 330_000_000;   # series id
+  my $prog_file = "progfile";
+  my $pageno = 0;
+  $verbose = 0;
+  $debug = 0;
+
+  ########## set this to number of days to grab and start date################
+  $grabdays = 1;
+  $stdate = 0;
+
+  ########## set this to pages directory
+  $showbase = "/opt/tivo/shows";
+  ########## set this to the provider ID of DTV for your Time Zone this one
+  ########## is for MST only.  You can find it by looking at the value of the
+  ########## tvguide.com -> ServiceID cookie that that will be set when you
+  ########## choose your provider for tvguide.com
+  $provider = 63893;
+#  $provider = 63894; 
+
+
+  if( ! -d "$showbase" ) {
+     mkdir("$showbase") || die "Could not create directory '$showbase': $!\n";
+  }
+
+  tie (%showtable, "GDBM_File", $prog_file, &GDBM_WRCREAT, 0644);
+
+  %chans = ();
+  %servid = ();
+  %genres = ();
+  loadchans();
+  loadservids();
+  loadgenres();
+
+  $curtime = time();
+  $secsinday = 60*60*24;
+  $ourd = int($curtime/$secsinday);
+  $startdate = $ourd + 25569;
+
+  #argv rtns -1 for no args, 0 for 1, 1 for 2
+  #print "Args= $#ARGV   0=$ARGV[0] 1=$ARGV[1]\n\n";
+
+  if($ARGV[0] eq "--help" ) {
+	print "Usage:  getppv [number of days [starting day]]\n\n";
+        exit;
+  }
+
+  if($#ARGV == 0) {
+	$grabdays = int($ARGV[0]);
+  }
+  if($#ARGV == 1) {
+	$grabdays = int($ARGV[0]);
+	$stdate = int($ARGV[1]);
+  }
+  $numdays = $stdate + $grabdays;		#set number of days
+  for( $dateind = $stdate; $dateind < $numdays; $dateind++) {
+     $gdate = $startdate + $dateind;
+     while (my ($chan, $servid) = each(%chans)) {
+         getpage($gdate,$servid, $chan);
+     }
+  }
+  exit 0;
+sub getpage
+{
+  $date = shift;
+  $sourceid = shift;
+  $channum = shift;
+
+  my $req = POST 'http://www.tvguide.com/listings/index.asp',
+     [ serv_id => $provider,
+       zip => '',
+       gridtype => 1,
+       S => $sourceid,
+       N => $channum,
+       event_date => $date,
+       event_hour => 0.000000,
+       frm_chanfltr => 0,
+       frm_catFltr => 0 ];
+
+
+  my $res = $ua->request($req);
+  $ua->cookie_jar->extract_cookies($res);
+  if($res->content =~ "Server Busy") { # server busy try again later
+    # from what I can tell cookies need to be reinitialized
+    my $tvgreq = GET 'http://www.tvguide.com';
+    my $tvgres = $ua->request($tvgreq);
+    $ua->cookie_jar->extract_cookies($tvgres);
+    if( $tvgres->code == 200) {
+      $res = $ua->request($req);
+      $ua->cookie_jar->extract_cookies($res);
+    } else {
+      # we have a problem so skip
+      print "Problem getting info ".$res->content."<br>";
+      return;
+    }
+  }
+
+  if( $res->code == 200) {
+      if($servid{"$channum"}) {
+          my $content = $res->content;
+          if($debug) {
+              print $content;
+          }
+          parse_page($content, $servid{"$channum"});
+      }
+  } else { 
+     print "Response code failed '" . $res->code . "'\n";
+     if($debug) {
+         print Dumper $req;
+     }
+     print "content ->'".$res->content . "'\n";
+  }
+}
+sub getshow {
+    $progid = shift;
+
+   ($showinfo{"title"}, $showinfo{"description"}, $showinfo{"duration"}, $showinfo{"cast"}, $showinfo{"category"}, $showinfo{"progid"}, $showinfo{"seriesid"}, $showinfo{"rating"}, $showinfo{"year"}, $showinfo{"director"}, $showinfo{"content"}) = split /\t/, $showtable{$progid};
+   if(!$showinfo{"title"}) {
+       %showinfo = ();
+   }
+   return %showinfo;
+}
+
+sub saveshow(\%){
+  my (%showinfo) = %{(shift)};
+  my $progid =  $showinfo{"progid"};
+   
+   $showrecord = "";
+
+   $showrecord .= $showinfo{"title"}."\t";
+   $showrecord .= $showinfo{"description"}."\t";
+   $showrecord .= $showinfo{"duration"}."\t";
+   $showrecord .= $showinfo{"cast"}."\t";
+   $showrecord .= $showinfo{"category"}."\t";
+   $showrecord .= $showinfo{"progid"}."\t";
+   $showrecord .= $showinfo{"seriesid"}."\t";
+   $showrecord .= $showinfo{"rating"}."\t";
+   $showrecord .= $showinfo{"year"}."\t";
+   $showrecord .= $showinfo{"director"}."\t";
+   $showrecord .= $showinfo{"content"}."\t";
+
+   $showtable{$progid} = $showrecord;
+}
+
+
+sub parseurl
+{
+# javascript:cu(63893,3682410,10736,'122','DIR122',37662.916667); -> Stuart Little 2 at 10:00 PM
+  my $url = shift;
+  if($debug) {
+      print "URL->$url\n";
+  }
+  $url =~ s/.*javascript:cu\(//;
+  $url =~ s/\).*//;
+  $url =~ s/'//g;
+  if($verbose) {
+    print "$url\n";
+  }
+  ($iSvcId, $iTitleId, $iSourceId, $sChannelnum, $sCallLetter, $dtPrgTimeLocal) = split /,/,$url;
+  $progid = $pidbase+$iTitleId;
+  %showinfo = ();
+  %showinfo = getshow($progid);
+  if(!length($showinfo{"title"})) {
+      $infourl="/listings/closerlook.asp?I=$iSvcId&Q=$iTitleId&S=$iSourceId&N=$sChannelnum&cl=$sCallLetter&DT=$dtPrgTimeLocal";
+      my %showinfo=getshowinfo($infourl);
+      $seriesid = $sidbase+$iTitleId;
+      $showinfo{"progid"}=$progid;
+      $showinfo{"seriesid"}=$seriesid;
+      saveshow(%showinfo);
+  }
+  ($jd,$disptime,$starttime) = convertdatetime($dtPrgTimeLocal);
+  return ($jd,$disptime,$starttime,$sChannelnum,%showinfo);
+
+}
+
+
+# takes a page object
+sub parse_page {
+    my $content = shift;
+    my $tivochan = shift;
+    my($showtime,$ourtext);
+
+    my $p = HTML::TokeParser->new(\$content) 
+        or die "failed to create parser: $!";
+
+    until ($p->get_tag('select')->[1]{name} eq 'frm_cat_Fltr') {} # twiddle thumbs
+
+    while(my $token = $p->get_token) {
+      my $ttype = shift @{$token};
+        if($ttype eq "S") {
+          my($tag, $attr, $attrseq, $rawtxt) = @{$token};
+          if($tag eq "th") {
+              $showtime = $p->get_trimmed_text();
+          } elsif ($tag eq "a") {
+            my $url = $token->[1]{href};
+            $ourshow = $p->get_trimmed_text();
+            if(($ourshow !~ /Video/) && ( $url =~ /javascript:cu/ )) {
+                ($mydate,$disptime,$tivotime,$channel,%showinfo) = parseurl($url);
+                if($showinfo{"title"}) {
+                  if( ! -d "$showbase/$mydate") {
+                     mkdir("$showbase/$mydate") || die "Could not create directory '$showbase/$mydate': $!\n";
+                  }
+                  if( ! -d "$showbase/$mydate/$tivochan") {
+                     mkdir("$showbase/$mydate/$tivochan") || die "Could not create directory '$showbase/$mydate/$tivochan': $!\n";
+                  }
+                  $showfile="$showbase/$mydate/$tivochan/$tivotime";
+                  if($verbose) {
+                    print "$ourshow,$mydate,$disptime,$tivotime,$showfile\n";
+                  }
+                  open(OUTFILE,">$showfile")||die "Could not create '$showfile': $!\n";
+                  print OUTFILE $showinfo{"cast"} if($showinfo{"cast"});
+                  print OUTFILE $showinfo{"category"} if($showinfo{"category"});
+                  print OUTFILE "day = $mydate\n";
+                  print OUTFILE "description = " . $showinfo{"description"} . "\n" if($showinfo{"description"});
+                  print OUTFILE "duration = " . $showinfo{"duration"} . "\n" if($showinfo{"duration"});
+                  print OUTFILE "end = later\n";
+                  print OUTFILE "episodic = 1\n";
+                  print OUTFILE "is_episode = 0\n";
+                  print OUTFILE "program = ".$showinfo{"progid"}."\n" if($showinfo{"progid"});
+                  print OUTFILE "series = ".$showinfo{"seriesid"}."\n" if($showinfo{"seriesid"});
+                  print OUTFILE "start = $disptime\n";
+                  print OUTFILE "station = ".$servid{$channel}."\n" if($servid{$channel});
+                  print OUTFILE "time = $tivotime\n";
+                  print OUTFILE "title = ". $showinfo{"title"} ."\n";
+                  print OUTFILE $showinfo{"rating"} ."\n" if($showinfo{"rating"});
+                  print OUTFILE "year = ". $showinfo{"year"} ."\n" if($showinfo{"year"});
+                  print OUTFILE "director = ". $showinfo{"director"} ."\n" if($showinfo{"director"});
+                  print OUTFILE "ppv = 1\n";
+                  close(OUTFILE);
+               }
+                 
+            }
+        }
+      }
+    }
+}
+
+sub convertdatetime
+{
+        my $tvgdate = shift;
+        my $disptime;
+        if($tvgdate =~ /:/) {    # this must have MM/DD/YYYY HH:MM format
+            if($debug) {
+               print "Date/Time is '$tvgdate'";
+            }
+            my($mydate,$disptime) = split / /,$tvgdate;
+            my($mymon,$myday,$myyear) = split /\//,$mydate;
+            my($myhour,$myminute) = split /:/,$disptime;
+            $mymon--;
+            $myear -= 1900;
+            my $myltime = timelocal(0,$myminute,$myhour,$myday,$mymon,$myyear);
+            ($mysec,$myminute,$myhour,$myday,$mymon,$myyear,$wday,$yday) = gmtime($myltime);
+            $myyear += 1900;
+            $mymon++;
+            $jd = dt($myyear,$mymon,$myday);
+            $starttime = $myltime % 86400;
+            if($debug) {
+                print "  converted to jd=$jd disptime=$disptime starttime=$starttime\n";
+            }
+            return($jd,$disptime,$starttime);
+        }
+        my ($days, $secs) = split /\D/,$tvgdate;
+        $days--;
+        $days--;
+        my ($year,$mon,$mday) = td($days);
+        print "TPLTPL -> $year\n";
+        if($secs ne "000000") {
+          $ourtime = $secsinday * $secs * .000001;
+          use integer;
+          $hour = $ourtime/3600;
+          $ourtime = $ourtime - ($hour * 3600);
+          $minutes = $ourtime/60;
+          if($minutes eq 59) {
+            $hour++;
+            $minutes = 0;
+          } elsif($minutes eq 29) {
+            $minutes = 30;
+          }
+          $sec = 0;
+        } else {
+           $hour = 0;
+           $minutes = 0;
+        }
+        if($hour > 12) {
+            my $lhour = $hour - 12;
+            $disptime = sprintf "%02d:%02d %s", $lhour, $minutes, "PM";
+        } elsif($hour == 12) {
+            $disptime = sprintf "%02d:%02d %s", $hour, $minutes, "PM";
+        } elsif($hour == 0) {
+            $disptime = sprintf "12:%02d %s", $minutes, "AM";
+        } else {
+            $disptime = sprintf "%02d:%02d %s", $hour, $minutes, "AM";
+        } 
+            
+        $mon--;
+        $myltime = timelocal($sec,$minutes,$hour,$mday,$mon,$year);
+#        print "myltime=$myltime\n";
+        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = gmtime($myltime);
+#        print "gmtime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday)\n";
+        $year += 1900;
+        $mon++;
+        $jd = dt($year,$mon,$mday);
+#        print "tivoday=$jd\n";
+        $starttime = $myltime % 86400;
+#        print "tivotime=$starttime\n";
+        return($jd,$disptime,$starttime);
+}
+
+
+sub dt {
+##################################
+# Tivo date from Gregorian Date  #
+##################################
+
+    use integer;
+    my ($y,$m,$d) = @_;
+    my $jd = Delta_Days(1970,1,1,$y,$m,$d);
+    return ($jd);
+};
+
+sub td {
+##################################
+# Gregorian Date from Tivo Date  #
+##################################
+    use integer;
+    my ($tddays) = @_;
+    my ($year,$month,$day) = Add_Delta_Days(1900,1,1,$tddays);
+    return($year,$month,$day);
+};
+
+sub getshowinfo {
+   my $infourl = shift;
+   $path="http://www.tvguide.com".$infourl;
+   if($verbose) {
+       print "Getting $path\n";
+   }
+   $response = $ua->request( GET "$path");
+   if( !$response->is_success ) {
+       return ();
+   }
+   if($debug) {
+      my $filename = "page".$pageno++;
+      open(OUTFILE,">$filename")|| die "Could not open $filename\n";
+      print OUTFILE $response->content;
+      close OUTFILE;
+   }
+   $ua->cookie_jar->extract_cookies($response);
+   return(parse_show_page($response->content));
+}
+
+# takes a page object
+sub parse_show_page {
+    my $content = shift;
+    my($showtime,$ourtext);
+
+    my %thisshow = ();
+
+    my $p = HTML::TokeParser::Simple->new(\$content)
+        or die "failed to create parser: $!";
+
+    while(my $token = $p->get_token) {
+        next if !$token->is_comment;
+        $comment =  $token->as_is;
+        last if($comment =~ /END CRUMBS/ );
+    }
+    # get title
+    while($token = $p->get_token) {
+        next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+        $title = $token->as_is;
+        $thisshow{"title"}=$title;
+        if($verbose) {
+            print "Title is '$title'\n";
+        }
+        last;
+    }
+    #get duration
+    while($token = $p->get_token) {
+        next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+        $duration = $token->as_is;
+        $duration =~ s/ min.\s*//g;
+        $duration *= 60;  # should be in seconds
+        $thisshow{"duration"}=$duration;
+        if($verbose) {
+            print "Duration is '$duration'\n";
+        }
+        last;
+    }
+    # now get description
+    if($token = $p->get_tag("font")) {
+        $description = $p->get_trimmed_text("/font");
+        $description =~ s/^\s+//;
+        $description =~ s/\s+$//;
+        $description =~ s/&#822.;//g;
+        $description =~ s/\x93/\"/g;
+        $description =~ s/\x94/\"/g;
+        $description =~ s/é/e/g;
+        $token = $p->get_token;
+        if(length($description) > 200 ) {
+            $description =~ /(.{200})/;
+            $description = $1;
+        }
+        $thisshow{"description"}=$description;
+        if($verbose) {
+            print "Description is '$description'\n";
+        }
+    }
+
+    # now get actors
+    while($token = $p->get_token) {
+      next if (!$token->is_text);
+        if( $token->as_is =~ /Cast:/ ) {
+          if($token = $p->get_tag("font")) {
+            $cast = $p->get_trimmed_text("/font");
+#            print "cast->".$cast."\n";
+            $cast =~ s/^\s+//;
+            $cast =~ s/\s+$//;
+            $cast =~ s/\n/ /g;
+            @cast = ();
+            @cast = split ',',$cast;
+            $showcast = "";
+            foreach $actor ( @cast ) {
+               $actor =~ s/^(.*) +(.*?)$/$2|$1/;
+               $actor =~ s/\s//g;
+               $showcast .= "actor = ". $actor."\n";
+            }
+            $thisshow{"cast"}=$showcast;
+            if($verbose) {
+                print "Cast is '$showcast'\n";
+            }
+            last;
+          }
+        } elsif ($token->as_is =~ /Rating:/) {
+          while($token = $p->get_token) {
+            next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+            $rating = $token->as_is;
+            $rating =~ s/^\s+//;
+            $rating =~ s/\s+$//;
+            $rating =~ tr/A-Z/a-z/;
+            $showrating = "";
+            if($rating =~ /tv/) {
+                $ratiing =~ s/tv-//;
+                $showrating = "tvrating = $rating";
+            } else {
+                $showrating = "mpaarating = $rating";
+            }
+            $thisshow{"rating"}=$showrating;
+            if($verbose) {
+               print "Rating is '$showrating'\n";
+            }
+            last;
+          }
+        } elsif ($token->as_is =~ /Content:/) {
+          while($token = $p->get_token) {
+            next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+            $rcontent = $token->as_is;
+            $rcontent =~ s/^\s+//;
+            $rcontent =~ s/\s+$//;
+            $thisshow{"content"}=$rcontent;
+            if($verbose) {
+                print "Content is '$rcontent'\n";
+            }
+            last;
+          }
+        } elsif ($token->as_is =~ /Category:/) {
+          while($token = $p->get_token) {
+            next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+            $category = $token->as_is;
+            $category =~ s/^\s+//;
+            $category =~ s/\s+$//;
+            $category =~ tr/A-Z/a-z/;
+            $showcat = "";
+            @category = ();
+            @category = split /[ ,\-&]/,$category;
+            foreach $spcat (@category) {
+                if($spcat =~ /movie/) {
+                    $showcat .= "movie = 1\n";
+                }
+                $genre = $genres{"$spcat"};
+                if($genre) {
+                  if(ref $genre eq 'ARRAY') {
+                    foreach $mygenre ( @$genre ) {
+                       $showcat .= "genre = $mygenre\n";
+                    }
+                  } else {
+                       $showcat .= "genre = $genre\n";
+                  }
+               }
+            }
+            $thisshow{"category"}=$showcat;
+            if($verbose) {
+                print "Category is '$showcat'\n";
+            }
+            last;
+          }
+        } elsif ($token->as_is =~ /Director:/) {
+          while($token = $p->get_token) {
+            next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+            $director = $token->as_is;
+            $director =~ s/^\s+//;
+            $director =~ s/\s+$//;
+            $director =~ s/^(.*) +(.*?)$/$2|$1/;
+            $thisshow{"director"}=$director;
+            if($verbose) {
+                print "Director is '$director'\n";
+            }
+            last;
+          }
+        } elsif ($token->as_is =~ /Release Year:/) {
+          while($token = $p->get_token) {
+            next if ((!$token->is_text) || ($token->as_is !~ /\w/));
+            $year = $token->as_is;
+            $year =~ s/^\s+//;
+            $year =~ s/\s+$//;
+            $thisshow{"year"}=$year;
+            if($verbose) {
+                print "Year is '$year'\n";
+            }
+            last;
+          }
+          last;
+        }
+    }
+    return %thisshow;
+}
+
+
+sub loadchans {
+%chans = ( 105 => 10719,
+106 => 10720,
+107 => 10721,
+108 => 10722,
+109 => 10723,
+110 => 10724,
+111 => 10725,
+112 => 10726,
+113 => 10727,
+114 => 10728,
+115 => 10729,
+116 => 10730,
+117 => 10996,
+118 => 10732,
+119 => 10733,
+120 => 10734,
+121 => 10735,
+122 => 10736,
+123 => 10997,
+124 => 10753,
+125 => 10737,
+126 => 10999,
+127 => 11000,
+128 => 10738,
+129 => 11001,
+130 => 10739,
+132 => 11002,
+134 => 10740,
+135 => 10741,
+136 => 11003,
+138 => 11005,
+140 => 10742,
+141 => 11006,
+142 => 10743,
+145 => 10744,
+148 => 10745,
+150 => 10746,
+151 => 11007,
+152 => 11008,
+155 => 11009,
+157 => 11010,
+160 => 11011,
+165 => 11012,
+168 => 11013,
+170 => 11014,
+171 => 11015,
+173 => 11024,
+174 => 11041,
+182 => 11018,
+183 => 11019,
+195 => 11027,
+196 => 11043,
+198 => 11043,
+199 => 10944 );
+}
+
+sub loadservids {
+%servid = ( 105 => 1705932,
+106 => 1705933,
+107 => 1705934,
+108 => 1705935,
+109 => 1705936,
+110 => 1705937,
+111 => 1705938,
+112 => 1705939,
+113 => 1705940,
+114 => 1705941,
+115 => 1705942,
+116 => 1705943,
+117 => 1705944,
+118 => 1705945,
+119 => 1705946,
+120 => 1705947,
+121 => 1705948,
+122 => 1705949,
+124 => 1705950,
+125 => 1705952,
+128 => 1705956,
+130 => 1705958,
+134 => 1705962,
+135 => 1705963,
+138 => 1705966,
+140 => 1705968,
+142 => 1705969,
+145 => 1705970,
+148 => 1705971,
+150 => 1705972,
+151 => 1705973,
+152 => 1705974,
+155 => 1705975,
+160 => 1705976,
+165 => 1705977,
+168 => 1705978,
+170 => 1705979,
+171 => 1705980,
+172 => 1705981,
+174 => 1705982,
+180 => 1705983,
+182 => 1705984,
+183 => 1705985,
+190 => 1705986,
+191 => 4533221,
+195 => 4533222,
+196 => 4607991,
+198 => 1705987);
+
+}
+
+sub loadgenres {
+    %genres = (
+        "action" => [1011,1],
+        "adventure" => [1011,1],
+        "ad" => [1011,1],
+        "adult" => [1005,2],
+        "movie" => [1006,68],
+        "biography" => [16],
+        "bio" => [1004, 16],
+        "business" => [1007, 21],
+        "biz" => [1007,21],
+        "financial" => [21],
+        "call-in" => [1010,106],   #added
+        "children" => [1001,22],
+        "children's" => [1001,22],
+        "comedy" => [1002, 25],
+        "computers" => [1008, 26],
+        "cooking" => [1000, 27],
+        "crime" => [1013,30,104,110],
+        "dance" => [1000,10,69],
+        "doc" => [1004,34],
+        "documentary" => [1004,34],
+        "drama" => [1005,35],
+        "edu" => [1012,36],
+        "educational" => [1012,36],
+        "electronics" => [1008,37],
+        "fashion" => [1000,40],
+        "fin" => [1007,21],
+        "fitness" => [1000,48,13],
+        "french" => [1000,43],
+        "fundraiser" => [1000,44],
+        "game" => [1012,45],
+        "health" => [1000,48],
+        "historical" => [1004,49],
+        "horror" => [1005,1013,104,35,55],
+        "house/garden" => [1000, 54],
+        "how-to" => [1004,58],
+        "info" => [1004, 34],
+        "medical" => [65], # unconfirmed
+        "musical" => [1000, 69, 70],
+        "mystery" => [1013, 71, 110],
+        "nature" => [1008, 3, 72],
+        "news" => [1007, 73, 117],
+        "reality" => [1005,75],
+        "reality" => [1000,79],
+        "romance" => [1005,82],
+        "romantic comedy" => [1005,83,1002,25],
+        "scifi" => [1014,88],
+        "science fiction" => [1014,88],
+        "shopping" => [1000, 90],
+        "situation" => [1002, 91],
+        "soaps" => [1005, 35, 96],
+        "soap opera" => [1005, 35, 96],
+        "special" => [1000, 100],
+        "specials" => [1000, 100],
+        "spiritual" => [1000, 80],
+        "sport - events" => [1009,101],
+        "sports" => [1009,101],
+        "tabloid" => [1010,63],
+        "talk" => [1010,106,107,60],
+        "travel" => [1000, 112, 59],
+        "variety" => [1002, 113],
+        "war" => [115],
+        "western" => [1015,35,118],
+        "westerns" => [1015,35,118],
+        "religion" => [80],
+        "animals" => [1008,3],
+        "sports news" => [1009,102],
+        "entertainment news" => [1007, 73, 117],
+        "rugby" => [1009,84],
+        "health" => [48],
+        "fitness" => [48],
+        "home and garden" => [54],
+        "housewares" => [57],
+        "jewelry" => [61],
+        "spanish" => [1000, 99],
+        "collectibles" => [24],
+        "art" => [1000, 6],
+        "beauty" => [13],
+        "classic" => [23]
+     );
+}

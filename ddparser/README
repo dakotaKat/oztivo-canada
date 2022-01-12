@@ -1,0 +1,47 @@
+DataDirect Parser
+
+Ok, here's some basic info on what this script-set does.
+slasher.pl - this is the main wrapper script that you use on a daily basis to
+    pull in the information and process it.
+    - arguments: --v - increase verbosity
+		 --days - number of days worth of data to grab
+		 --part - used to bypass initial parts of the processing
+		 --listings - location for listing slice files
+		 --headend - location for headend slice file
+		 --writeguide - path to writeguide
+		 --gzip - to gzip the slice files
+datadirect.sql - initial database setup statements
+datadirect.pl - pretty much stock file from the datadirect site.
+datadirect-parser.pl - workhorse that processes the datadirect xml file
+mkPrograms.pl - script used to take the information from the mysql database and
+    create the input files for writeguide
+mkHeadend.pl - script used to take the info from mysql and create the input
+    for writeguide for the headend
+
+Requirements:
+  MySQL 4.0.14 or newer configured for InnoDB
+  Perl modules:
+      XML::RSS
+
+How to make it work:
+1) you'll need mysql installed
+2) mysql -u root < datadirect.sql
+3) if you were using the parsexmlguid process before, you _should_ be able to 
+   copy your myprogid and stations.txt file into this directory
+ Otherwise
+   touch stations.txt to create an empty file.
+5) you'll need to edit the following bits:
+   datadirect.pl - update the username and password variables to match yours.
+6) you'll need a ~/.tivohelper/config.ini file for the writeguide process.
+   I'm not sure that anything useful needs to be n there, but it needs it
+   for writeguide.
+7) get a copies of config-channels.ini and config-logos.ini from headend-utils.
+8) create a config.ini or modify the one that is automatically created.
+9) Follow these steps in order to use cable and satellite together:
+   In order to force 2 different headend slices, the postal codes for the
+   providers must be different. Choose the cable system for your postal code
+   and then select a nearby postal code for the satellite system (first 2 digits
+   must be the same).
+10) edit no_data_stations.ini in order to add stations to the headend that you
+    don't retrieve from datadirect
+11) hopefully everything will load just fine for you. :-)

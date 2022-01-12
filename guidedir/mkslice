@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+# $Id: mkslice,v 1.2 2003/06/24 03:34:26 darren Exp $
+
+use strict;
+use warnings;
+
+use TiVo::Slice::Record::Program;
+use TiVo::Slice::Record::Series;
+use TiVo::Slice::Record::StationDay;
+use TiVo::Slice;
+use TiVo::Config;
+use TiVo::CommandUtils qw(range);
+use TiVo::ServerId::StationDay;
+use TiVo::ShowLists;
+use Getopt::Long;
+
+my $help = 0;
+GetOptions(
+           'help'    => \$help,
+          );
+
+die usage() if $help;
+die usage() unless @ARGV == 1 or @ARGV == 2;
+my @days = range($ARGV[0]);
+my $stations = $ARGV[1] ? [ range($ARGV[1]) ] : undef;
+
+# update the server version
+my $conf = TiVo::Config->new;
+my $version = $conf->serverversion;
+$version++;
+$conf->serverversion($version);
+
+# start the slice
+my $slice = TiVo::Slice->new;
+
+my $showlists = TiVo::ShowLists->new(days => \@days, stations => $stations);
+for my $shows ($showlists->all) {
+
+    # start stationday
+    my $sdayid = TiVo::ServerId::StationDay->new(
+                                                 $shows->station,
+                                                 $shows->day,
+                                                );
+    my $stationday = TiVo::Slice::Record::StationDay->new(
+                                                          $sdayid->value,
+                                                          $version,
+                                                         );
+    $stationday->add(
+                     station => $shows->station,
+                     day     => $shows->day,
+                    );
+
+    for my $show ($shows->all) {
+
+        # add the showing to the stationday
+        my %showingdata;
+        for my $fieldname ($stationday->valid_fields) {
+            my $value = $show->get($fieldname);
+            $showingdata{$fieldname} = $value if defined $value;
+        }
+        $stationday->add_showing(%showingdata);
+            
+        # add the program
+        my $pid = $show->program;
+        my $program = TiVo::Slice::Record::Program->new($pid, $version);
+        my %programdata;
+        for my $fieldname ($program->valid_fields) {
+            my $value = $show->get($fieldname);
+            $programdata{$fieldname} = $value if defined $value;
+        }
+        $program->add(%programdata);
+        $slice->add($program);
+
+        # add the series
+        my $sid = $show->series;
+        my $series = TiVo::Slice::Record::Series->new($sid, $version);
+        my %seriesdata;
+        for my $fieldname ($series->valid_fields) {
+            my $value = $show->get($fieldname);
+            $seriesdata{$fieldname} = $value if defined $value;
+        }
+        $series->add(%seriesdata);
+        $slice->add($series);
+    }
+    $slice->add($stationday);
+}
+
+binmode STDOUT;
+print $slice->value;
+
+sub usage {
+    return "usage: mkslice dayrange [stationrange]\n";
+}

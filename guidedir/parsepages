@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+# $Id: parsepages,v 1.2 2003/06/24 03:34:26 darren Exp $
+
+use strict;
+use warnings;
+
+use TiVo::ServerId::Program;
+use TiVo::ServerId::Series;
+use TiVo::Web::Parser;
+use TiVo::Web::Pages;
+use TiVo::CommandUtils qw(range);
+use Getopt::Long;
+
+my $verbose = 0;
+my $help = 0;
+GetOptions(
+           'verbose' => \$verbose,
+           'help'    => \$help,
+          );
+
+die usage() if $help;
+die usage() unless @ARGV == 1 or @ARGV == 2;
+my @days = range($ARGV[0], date => 1);
+my $stations = $ARGV[1] ? [ range($ARGV[1]) ] : undef;
+
+my $parser = TiVo::Web::Parser->new;
+my $pages = TiVo::Web::Pages->new(days => \@days, stations => $stations);
+
+# flush output sooner
+local $| = 1;
+
+my %days;
+for my $page ($pages->all) {
+    push @{$days{$page->day}}, $page;
+}
+
+for my $day (sort keys %days) {
+    print "parsing $day" if $verbose;
+    for my $page (@{$days{$day}}) {
+        print "." if $verbose;
+        my @shows = $parser->parse_page($page);
+        for my $show (@shows) {
+            $show->save;
+        }
+    }
+    print "\n" if $verbose;
+}
+
+sub usage {
+    return "usage: parsepages daterange [stationrange]\n";
+}

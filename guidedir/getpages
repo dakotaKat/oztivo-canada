@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+# $Id: getpages,v 1.2 2003/06/24 03:34:26 darren Exp $
+
+use strict;
+use warnings;
+
+use TiVo::Web::Agent;
+use TiVo::Web::Page;
+use TiVo::CommandUtils qw(range);
+use TiVo::Stations;
+use Getopt::Long;
+
+my $verbose = 0;
+my $help = 0;
+GetOptions(
+           'verbose' => \$verbose,
+           'help'    => \$help,
+          );
+
+die usage() if $help;
+die usage() unless @ARGV == 1 or @ARGV == 2;
+my @days = range($ARGV[0], date => 1);
+my @stations = $ARGV[1] ? range($ARGV[1]) : TiVo::Stations->new->all;
+
+my $agent = TiVo::Web::Agent->new;
+
+# flush output sooner
+local $| = 1;
+
+my $type = $agent->page_type;
+for my $day (@days) {
+    if ($type eq 'all') {
+        @stations = ('all');
+    }
+    for my $station (@stations) {
+        next if $type eq 'single' and TiVo::Web::Page->exists($station, $day);
+        my $content = $agent->getpage($station, $day);
+        next unless $content;
+        my $page = TiVo::Web::Page->new;
+        $page->content($content);
+        $page->day($day);
+        $page->station($station);
+        $page->save;
+    }
+    continue {
+        print "." if $verbose;
+    }
+    print "\n" if $verbose;
+}
+
+sub usage {
+    return "usage: getpages daterange [stationrange]\n"
+}

@@ -1,0 +1,106 @@
+Tivo Guide Tools
+$Id: README,v 1.2 2003/06/24 03:34:26 darren Exp $
+
+introduction
+
+  This package has tools to grab TV listings off the web and use them
+  to produce slice files for a TiVo.  Yes, this lets you avoid having
+  a subscription.  No, you shouldn't use this unless you can't get
+  service from TiVo.  It's a lot harder to set up and not really as
+  good.  From what I hear, the data TiVo supplies is pretty extensive,
+  including lists of actors for each show.  You're unlikely to get
+  that much information off a free web site.
+
+
+overview
+
+  add-channel.tcl, add-station.tcl, set-station-of-channel.tcl
+    
+    These are to help you create a working lineup.  This is not an
+    automated process.  I only had to do it once, so I haven't spent
+    any time making it better.  Good luck.
+
+  getpages, parsepages, mkslice
+
+    Perl scripts for getting and formatting the guide data.  getpages
+    retrieves the raw HTML from a web site, one page per station per
+    day.  parsepages extracts the useful data from the pages, and
+    creates show files, one file per show per station per day.
+    mkslice reads the show files and outputs a slice file.
+
+  TiVo/*
+
+    The Perl packages that do most of the work.  Put them somewhere
+    perl can find them (look at @INC in 'perl -V').  You'll need Perl
+    5.6 or better.
+
+    The Zap2it packages are for http://www.zap2it.com, where I get my
+    data.  It should be reasonably easy to create packages for another
+    web site -- subclass TiVo::Web::Agent and TiVo::Web::Parser.
+
+    Some other Perl packages are required: Date::Calc,
+    HTML::TokeParser, LWP.  If you are using Debian, install these
+    packages: libwww-perl, libdate-calc-perl, libhtml-parser-perl.
+
+  tivoguiderc
+
+    This should be moved to $HOME/.tivoguiderc.  
+
+    'guidedir' is the directory where the interim data (page and show
+    files) are stored.
+
+    'webguide' is the name of the directory under 'TiVo' where your
+    agent and parser live.
+
+    'postalcode' and 'provider' are used by TiVo::Zap2it::Agent.  Look
+    up your listings in a browser and then check the cookie the site
+    gives you.
+
+    'serverversion' is used by mkslice. It gets updated automatically,
+    and you shouldn't have to touch it.
+
+    'pagetype' lets you choose how to grab web pages. 'single' gets
+    one page per station per day. 'all' gets one big file per day. You
+    probably want to use 'all'.
+
+  stations.txt
+
+    A list of all the stations you watch. Edit it to match your TiVo,
+    and put it in whatever directory you set 'guidedir' to.  My code
+    only uses the serverid and zap2it_id columns, but it's handy to
+    have everything in one place.
+
+
+ranges
+
+  The arguments for getpage and parsepages are a daterange and
+  optionally a stationrange. 
+
+  A daterange can be one of the following:
+    - a single date "20011201" (YYYYMMDD)
+    - a date plus a number of days "20011201+5"
+    - a range of dates "20011201-15"
+    - a list of any of the above "20011201-15,20011218+3,20011231"
+
+  A stationrange is like a daterange, but for station server ids.
+
+  mkslice takes a dayrange instead of a daterange, where a day is the
+  number of days since January 1, 1970.
+
+
+thanks
+
+  Whoever wrote slicedump.pl. Arup Mukherjee <arup42@yahoo.com> for
+  pointing out a problem with the number encoding. The Doctor 
+  <Dr_Weld@onemain.com> for giving me some sample code of parsing the
+  all-stations file.
+
+
+bugs, patches, feature requests
+
+  Any of the above, or bitching about the bad documentation, should go
+  to grant@antiflux.org.
+
+
+Grant Hollingworth
+grant@antiflux.org
