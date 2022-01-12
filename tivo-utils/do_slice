@@ -1,0 +1,62 @@
+#!/bin/sh
+
+# *NOTE* _NO_ trailing slashes
+# for poz/fix: 0 == disabled, 1 == enabled
+
+##########################################################################
+## Configuration #########################################################
+##########################################################################
+progs="/var/slice"			#Script directory
+slices="/var/slice/packages"		#Were are the slice files stored?
+poz=1					#Do we want positive re-inforcment
+fix=0					#Do we want to run fixup?
+fixscript="fixup.tcl"			#Name of the fixup script
+##########################################################################
+## End Configuration #####################################################
+##########################################################################
+
+syslog -p local6.info -t do_slice Starting Slice Checking
+
+#Internal variable to tell if we found any slice files.
+donesome="0"
+
+/tivo-bin/ls $slices/ > /tmp/lsPagefiles
+for ii in `cat /tmp/lsPagefiles`
+do
+  case $ii in
+	    slicefile..LCK )
+        #nothing to do here for this
+        ;;
+      *.slice )
+        syslog -p local6.info -t do_slice Found Slice $ii - Processing
+        /tvbin/tivosh $progs/dbload.tcl $slices/$ii
+        rm  $slices/$ii
+        donesome="1"
+        ;;
+      * )
+        #ignore other files but warn
+        syslog -p local6.info -t do_slice Found spurious files in $slices - removing $ii
+        rm $slices/$ii
+        ;;
+  esac
+done
+
+if [ $donesome = "1" ]; then
+   syslog -p local6.info -t do_slice Forcing Reindexing
+   /tvbin/tivosh $progs/force_index
+   if [ $poz = "1" ]; then
+      sleep 2
+      /tvbin/tivosh $progs/sendtivomail.tcl 0 "$(cat /tmp/lsPagefiles)" "Special Stations"
+   fi
+else
+   /tvbin/tivosh $progs/sendtivomail.tcl 1 "No Slice Found" "Canadian Listings" 0
+fi
+
+#cleanup after ourselves
+rm /tmp/lsPagefiles
+syslog -p local6.info -t do_slice Do_Slice completed
+
+# Run fixup so it thinks all is well, also prevents dial out attempts for 7 days
+if [ $fix = "1" ]; then
+   /tvbin/tivosh $progs/$fixscript
+fi

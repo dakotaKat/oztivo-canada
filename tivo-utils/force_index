@@ -1,0 +1,18 @@
+#!/tvbin/tivosh
+
+setpri fifo 1
+
+lappend auto_path $tcl_library/tv
+
+source $tcl_library/tv/Inc.itcl
+tvsource $tcl_library/tv/EndPoint.itcl
+tvsource $tcl_library/tv/SwSystem.itcl
+tvsource $tcl_library/tv/Database.itcl
+tvsource $tcl_library/tv/mfslib.tcl
+tvsource $tcl_library/tv/Setup.itcl
+
+namespace import Inc::*
+
+# Tell MyWorld that there is new program data.
+event send $TmkEvent::EVT_DATA_CHANGED $TmkDataChanged::PROGRAM_GUIDE 0
+

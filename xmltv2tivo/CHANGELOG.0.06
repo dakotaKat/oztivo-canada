@@ -1,0 +1,30 @@
+CHANGELOG 0.06	- Limited number of credit roles parsed from the XML.
+		- Added parsing for <stereo>, <aspect> and <subtitles>.
+		- Implemented a wincy patch to writeguide.c
+		- Implemented a tivoDate to struct tm function.
+
+CHANGELOG 0.05	- Implemented two seriesPair tables, one table for those
+		  seriesPairs found during previous slice-writing and
+		  another table for those seriesPairs found during the
+		  current XML parse. After the slice data is written out, the
+		  two tables are merged and sorted, and then written out
+		  to the SERIES_MAP_FILE.
+		
+		- Updated GENRE_MAP_FILE to include the all essential "Darts"
+		  category, amongst a handful of other categories.
+
+CHANGELOG 0.04	- Changed the names of a few functions. 
+		- Moved initial file loading routines out of main()
+		- Tidied up the GENRE_MAP_FILE ("Football" != "Soccer"
+		  and "Movie/Drama" is a Drama rather than a Movie.)
+
+CHANGELOG 0.03 	- Fixed stupid bug.. stationDayIndex was being incremented
+		  after every program record, existing slices are OK, but
+		  it was a wasteful use of index values.
+		- Now provides warning if unknown category found in the XML.
+
+CHANGELOG 0.02	- Fixed writing of stationDay records which were not being
+		  dumped out in full. The relevant record write function was
+		  in the wrong depth of a nested loop.
+
+CHANGELOG 0.01	- Half-baked version
